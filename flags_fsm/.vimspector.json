@@ -1,0 +1,12 @@
+{
+  "configurations": {
+    "Debug": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/target/debug/flags_fsm",
+	"args": []
+      }
+    }
+  }
+}
