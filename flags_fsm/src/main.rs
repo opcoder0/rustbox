@@ -1,4 +1,5 @@
-pub enum States {
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum State {
     Start,
     Flag,
     Value,
@@ -9,79 +10,126 @@ pub enum States {
 fn main() {
     let bflags: Vec<String> = vec!["-f".to_string(), "-i".to_string()];
     // let oflags: Vec<String> = vec!["-n".to_string(), "-r".to_string()];
+    //
+    //    let input: Vec<String> = vec![
+    //     "-n".to_string(),
+    //     "3".to_string(),
+    //     "-f".to_string(),
+    //     "-r".to_string(),
+    //     "5".to_string(),
+    // ];
+
+    // invalid input
+    // let input: Vec<String> = vec![
+    //     "-f".to_string(),
+    //     "-n".to_string(),
+    //     "3".to_string(),
+    //     "5".to_string(),
+    //     "-r".to_string(),
+    //     "5".to_string(),
+    // ];
+
+    // overriding/repeating inputs
     let input: Vec<String> = vec![
-        "-n".to_string(),
-        "3".to_string(),
         "-f".to_string(),
+        "-n".to_string(),
+        "5".to_string(),
         "-r".to_string(),
         "5".to_string(),
+        "-n".to_string(),
+        "6".to_string(),
+        "-f".to_string(),
     ];
 
-    let mut state = States::Start;
-    let mut f_name = String::new();
-    let mut b_name = String::new();
+    let mut state = State::Start;
+    let mut fname = String::new();
+    let mut bname = String::new();
     for i in input.iter() {
         if i.starts_with("-") {
-            // flag
             if is_bool_flag(&i, &bflags) {
-                state = States::BooleanFlag;
-                b_name.push_str(&i.clone());
-            } else {
-                state = States::Flag;
-                f_name.push_str(&i.clone());
-            }
-        } else {
-            // value
-            match state {
-                States::Start => {
-                    println!("expecting flag; found value");
-                    state = States::Error;
-                    break;
-                }
-                States::Flag => {
-                    // consume the value;
-                    println!("flag {} consumes value: {}", f_name, i);
-                    f_name.clear();
-                }
-                States::BooleanFlag => {
-                    if i == "true" || i == "false" {
-                        // setting boolean value to flag
-                        println!("boolean flag {} consumes value {}", f_name, i);
-                        f_name.clear();
-                    } else {
-                        println!("invalid boolean value; expecting true or false or nothing");
-                        state = States::Error;
+                match state {
+                    State::Start => {
+                        bname.push_str(&i.clone());
+                        state = State::BooleanFlag;
+                    }
+                    State::BooleanFlag => {
+                        if bname.is_empty() {
+                            bname.push_str(&i.clone());
+                            state = State::BooleanFlag;
+                        } else {
+                            // process the previous boolean flag
+                            println!("boolean flag: {} => true", bname);
+                            bname.clear();
+                            bname.push_str(&i.clone());
+                            state = State::BooleanFlag;
+                        }
+                    }
+                    State::Value => {
+                        bname.clear();
+                        bname.push_str(&i.clone());
+                        state = State::BooleanFlag;
+                    }
+                    _ => {
+                        println!("invalid state transition to boolean flag");
+                        state = State::Error;
                         break;
                     }
                 }
-                States::Value => {
-                    println!("flag must be followed by a single value. Enclose it in quotes");
-                    state = States::Error;
-                    break;
+            } else {
+                match state {
+                    State::Start => {
+                        fname.push_str(&i.clone());
+                        state = State::Flag;
+                    }
+                    State::BooleanFlag => {
+                        println!("boolean flag: {} => true", bname);
+                        bname.clear();
+                        fname.clear();
+                        fname.push_str(&i.clone());
+                        state = State::Flag;
+                    }
+                    State::Value => {
+                        fname.clear();
+                        fname.push_str(&i.clone());
+                        state = State::Flag;
+                    }
+                    _ => {
+                        println!("missing required value: {}", fname);
+                        state = State::Error;
+                        break;
+                    }
                 }
-                States::Error => {
-                    println!("error state");
+            }
+        } else {
+            match state {
+                State::Flag => {
+                    println!("{} = {}", fname, i);
+                    fname.clear();
+                    state = State::Value;
+                }
+                State::BooleanFlag => {
+                    if i == "true" || i == "false" {
+                        println!("boolean flag: {} => {}", bname, i);
+                        bname.clear();
+                        state = State::Value;
+                    } else {
+                        println!("boolean flag can only have true/false");
+                        state = State::Error;
+                        break;
+                    }
+                }
+                _ => {
+                    println!("a flag must precede the value");
+                    state = State::Error;
                     break;
                 }
             }
         }
     }
-    match state {
-        States::Start => {
-            println!("if there were mandatory flags; prints error here - missing mandatory flags");
-        }
-        States::Flag => {
-            println!("missing value for flag");
-        }
-        States::BooleanFlag => {
-            println!("ok");
-        }
-        States::Value => {
-            println!("ok");
-        }
-        States::Error => {
-            println!("error");
-        }
+    if state != State::Error {
+        println!("ok");
+    } else {
+        println!("error parsing arguments");
     }
 }
 
